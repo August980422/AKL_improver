@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AKL Pro | Words Improver (Chinese Support)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --primary: #0f172a; 
+            --accent: #b91c1c; 
+            --bg: #f8fafc; 
+            --surface: #ffffff; 
+            --border: #e2e8f0; 
+            --highlight: #fee2e2; 
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--primary); margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        nav { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; height: 70px; display: flex; align-items: center; justify-content: space-between; }
+        .brand { font-family: 'Lora', serif; font-weight: 700; font-size: 1.4rem; display: flex; align-items: center; gap: 10px; }
+        .brand .badge { background: var(--accent); color: white; font-family: 'Inter', sans-serif; font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 1px; vertical-align: middle; }
+        main { flex: 1; display: grid; grid-template-columns: 1fr 1fr; height: calc(100vh - 70px); }
+        .panel { display: flex; flex-direction: column; position: relative; }
+        .panel-left { border-right: 1px solid var(--border); }
+        .panel-bg { background: #fff; }
+        .toolbar { padding: 0.8rem 1.5rem; border-bottom: 1px solid var(--border); background: #fdfdfd; display: flex; justify-content: space-between; align-items: center; height: 60px; }
+        textarea { flex: 1; width: 100%; border: none; padding: 2rem; font-family: 'Lora', serif; font-size: 1.1rem; line-height: 1.8; resize: none; outline: none; color: #334155; }
+        textarea::placeholder { color: #cbd5e1; }
+        #output { flex: 1; padding: 2rem; overflow-y: auto; font-family: 'Lora', serif; font-size: 1.1rem; line-height: 1.8; color: #0f172a; }
+        
+        /* --- Highlights --- */
+        .akl-match { 
+            background-color: rgba(185, 28, 28, 0.1); 
+            border-bottom: 2px solid var(--accent); 
+            cursor: pointer; 
+            border-radius: 2px; 
+            transition: all 0.2s; 
+            position: relative; 
+            padding: 0 1px; 
+        }
+        .akl-match:hover { background-color: rgba(185, 28, 28, 0.2); }
+        .akl-match.reverted { background: transparent; border-bottom: 1px dashed #94a3b8; color: #64748b; text-decoration: line-through; }
+        
+        /* --- Updated Tooltip with Chinese --- */
+        .akl-match::after { 
+            /* Shows: Original (POS) ➤ Chinese */
+            content: attr(data-original) " (" attr(data-pos) ") ➤ " attr(data-zh); 
+            position: absolute; 
+            bottom: 100%; 
+            left: 50%; 
+            transform: translateX(-50%) translateY(-4px); 
+            background: #1e293b; 
+            color: white; 
+            padding: 6px 10px; 
+            border-radius: 4px; 
+            font-size: 0.8rem; 
+            font-family: 'Inter', sans-serif; 
+            white-space: nowrap; 
+            opacity: 0; 
+            pointer-events: none; 
+            transition: opacity 0.2s; 
+            z-index: 10; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .akl-match:hover::after { opacity: 1; }
+
+        button { padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #334155; }
+        .btn-ghost { background: transparent; color: #64748b; border: 1px solid #e2e8f0; }
+        .btn-ghost:hover { border-color: #94a3b8; color: #0f172a; }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 2rem; border-radius: 12px; width: 400px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+        input[type="password"] { width: 100%; padding: 0.75rem; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 6px; }
+        .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <!-- Settings Modal -->
+    <div id="keyModal" class="modal" style="display:flex;">
+        <div class="modal-content">
+            <h3 style="margin-top:0">Configuration</h3>
+            <p style="font-size:0.9rem; color:#64748b;">Please enter your Gemini API Key.</p>
+            <input type="password" id="apiKey" placeholder="Paste AIza... key here">
+            <div style="text-align:right; margin-top:10px;">
+                <button class="btn-primary" onclick="saveKey()">Start Strict Editor</button>
+            </div>
+        </div>
+    </div>
+
+    <nav>
+        <div class="brand">
+            AKL Editor <span class="badge">stable</span>
+        </div>
+        <div>
+            <button class="btn-ghost" onclick="document.getElementById('keyModal').style.display='flex'">API Settings</button>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Input -->
+        <div class="panel panel-left panel-bg">
+            <div class="toolbar">
+                <span style="font-size:0.85rem; font-weight:600; color:#64748b;">Original Draft</span>
+                <button class="btn-ghost" onclick="loadSample()">Sample Text</button>
+            </div>
+            <textarea id="inputText" placeholder="Paste your academic text here..."></textarea>
+        </div>
+
+        <!-- Output -->
+        <div class="panel">
+            <div class="toolbar">
+                <span style="font-size:0.85rem; font-weight:600; color:#64748b;">Academic Revision</span>
+                <div style="display:flex; gap:10px;">
+                    <div id="stat-count" style="font-size:0.8rem; color:#b91c1c; display:flex; align-items:center; font-weight:bold;"></div>
+                    <button class="btn-primary" id="runBtn" onclick="processStrict()">
+                        Strict Process
+                    </button>
+                    <button class="btn-ghost" onclick="copyClean()">Copy</button>
+                </div>
+            </div>
+            <div id="output">
+                <p style="color:#cbd5e1; font-style:italic; margin-top:20px;">
+                    Output will strictly adhere to POS rules with Chinese annotations on hover.
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // =========================================================
+        // 1. THE STRICT DATABASE
+        // =========================================================
+        const AKL_DB = `
+        NOUNS_LIST: ability, absence, account, achievement, act, action, activity, addition, adoption, adult, advance, advantage, advice, age, aim, alternative, amount, analogy, analysis, application, approach, argument, aspect, assertion, assessment, assistance, association, assumption, attempt, attention, attitude, author, awareness, balance, basis, behaviour, being, belief, benefit, bias, birth, capacity, case, category, cause, centre, challenge, change, character, characteristic, choice, circumstance, class, classification, code, colleague, combination, commitment, committee, communication, community, comparison, complexity, compromise, concentration, concept, conception, concern, conclusion, condition, conduct, conflict, consensus, consequence, consideration, constraint, construction, content, contradiction, contrast, contribution, control, convention, correlation, country, creation, crisis, criterion, criticism, culture, damage, data, debate, decision, decline, defence, definition, degree, demand, description, destruction, determination, development, difference, difficulty, dilemma, dimension, disadvantage, discovery, discrimination, discussion, distinction, diversity, division, doctrine, effect, effectiveness, element, emphasis, environment, error, essence, establishment, evaluation, event, evidence, evolution, examination, example, exception, exclusion, existence, expansion, experience, experiment, explanation, exposure, extent, extreme, fact, factor, failure, feature, female, figure, finding, force, form, formation, function, future, gain, group, growth, guidance, guideline, hypothesis, idea, identity, impact, implication, importance, improvement, increase, indication, individual, influence, information, insight, instance, institution, integration, interaction, interest, interpretation, intervention, introduction, investigation, isolation, issue, kind, knowledge, lack, learning, level, likelihood, limit, limitation, link, list, literature, logic, loss, maintenance, majority, male, manipulation, mankind, material, means, measure, medium, member, method, minority, mode, model, motivation, movement, need, network, norm, notion, number, observation, observer, occurrence, operation, opportunity, option, organisation, outcome, output, parallel, parent, part, participant, past, pattern, percentage, perception, period, person, personality, perspective, phenomenon, point, policy, population, position, possibility, potential, practice, presence, pressure, problem, procedure, process, production, programme, progress, property, proportion, proposition, protection, provision, publication, purpose, quality, question, range, rate, reader, reality, reason, reasoning, recognition, reduction, reference, relation, relationship, relevance, report, representative, reproduction, requirement, research, resistance, resolution, resource, respect, restriction, result, review, rise, risk, role, rule, sample, scale, scheme, scope, search, section, selection, sense, separation, series, service, set, sex, shift, significance, similarity, situation, skill, society, solution, source, space, spread, standard, statistics, stimulus, strategy, stress, structure, subject, success, summary, support, survey, system, target, task, team, technique, tendency, tension, term, theme, theory, tolerance, topic, tradition, transition, trend, type, uncertainty, understanding, unit, use, validity, value, variation, variety, version, view, viewpoint, volume, whole, work, world.
+        
+        VERBS_LIST: accept, account, achieve, acquire, act, adapt, adopt, advance, advocate, affect, aid, aim, allocate, allow, alter, analyse, appear, apply, argue, arise, assert, assess, assign, associate, assist, assume, attain, attempt, attend, attribute, avoid, base, be, become, benefit, can, cause, characterise, choose, cite, claim, clarify, classify, coincide, combine, compare, compete, comprise, concentrate, concern, conclude, conduct, confine, conform, connect, consider, consist, constitute, construct, contain, contrast, contribute, control, convert, correspond, create, damage, deal, decline, define, demonstrate, depend, derive, describe, design, destroy, determine, develop, differ, differentiate, diminish, direct, discuss, display, distinguish, divide, dominate, effect, eliminate, emerge, emphasize, employ, enable, encounter, encourage, enhance, ensure, establish, evaluate, evolve, examine, exceed, exclude, exemplify, exist, expand, experience, explain, expose, express, extend, facilitate, fail, favour, finance, focus, follow, form, formulate, function, gain, generate, govern, highlight, identify, illustrate, imply, impose, improve, include, incorporate, increase, indicate, induce, influence, initiate, integrate, interpret, introduce, investigate, involve, isolate, label, lack, lead, limit, link, locate, maintain, may, measure, neglect, note, obtain, occur, operate, outline, overcome, participate, perceive, perform, permit, pose, possess, precede, predict, present, preserve, prevent, produce, promote, propose, prove, provide, publish, pursue, quote, receive, record, reduce, refer, reflect, regard, regulate, reinforce, reject, relate, rely, remain, remove, render, replace, report, represent, reproduce, require, resolve, respond, restrict, result, retain, reveal, seek, select, separate, should, show, solve, specify, state, stimulate, strengthen, stress, study, submit, suffer, suggest, summarise, supply, support, sustain, tackle, tend, term, transform, treat, undermine, undertake, use, vary, view, write, yield.
+        
+        ADJECTIVES_LIST: absolute, abstract, acceptable, accessible, active, actual, acute, additional, adequate, alternative, apparent, applicable, appropriate, arbitrary, available, average, basic, central, certain, clear, common, competitive, complete, complex, comprehensive, considerable, consistent, conventional, correct, critical, crucial, dependent, detailed, different, difficult, distinct, dominant, early, effective, equal, equivalent, essential, evident, excessive, experimental, explicit, extensive, extreme, far, favourable, final, fixed, following, formal, frequent, fundamental, future, general, great, high, human, ideal, identical, immediate, important, inadequate, incomplete, independent, indirect, individual, inferior, influential, inherent, initial, interesting, internal, large, late, leading, likely, limited, local, logical, main, major, male, maximum, mental, minimal, minor, misleading, modern, mutual, natural, necessary, negative, new, normal, obvious, original, other, overall, parallel, partial, particular, passive, past, permanent, physical, positive, possible, potential, practical, present, previous, primary, prime, principal, productive, profound, progressive, prominent, psychological, radical, random, rapid, rational, real, realistic, recent, related, relative, relevant, representative, responsible, restricted, scientific, secondary, selective, separate, severe, sexual, significant, similar, simple, single, so-called, social, special, specific, stable, standard, strict, subsequent, substantial, successful, successive, sufficient, suitable, surprising, symbolic, systematic, theoretical, total, traditional, true, typical, unique, unlike, unlikely, unsuccessful, useful, valid, valuable, varied, various, visual, vital, wide, widespread.
+        
+        ADVERBS_LIST: above, accordingly, accurately, adequately, also, approximately, at best, basically, clearly, closely, commonly, consequently, considerably, conversely, correctly, directly, effectively, e.g., either, equally, especially, essentially, explicitly, extremely, fairly, far, for example, for instance, frequently, fully, further, generally, greatly, hence, highly, however, increasingly, indeed, independently, indirectly, inevitably, initially, in general, in particular, largely, less, mainly, more, moreover, most, namely, necessarily, normally, notably, often, only, originally, over, partially, particularly, potentially, previously, primarily, purely, readily, recently, relatively, secondly, significantly, similarly, simply, socially, solely somewhat, specifically, strongly, subsequently, successfully, thereby, therefore, thus, traditionally, typically, ultimately, virtually, wholly, widely.
+        `;
+
+        // =========================================================
+        // 2. APP LOGIC
+        // =========================================================
+        
+        let userKey = localStorage.getItem('akl_key_strict_pos') || "";
+
+        function saveKey() {
+            const input = document.getElementById('apiKey').value.trim();
+            if(input.length > 10) {
+                userKey = input;
+                localStorage.setItem('akl_key_strict_pos', userKey);
+                document.getElementById('keyModal').style.display = 'none';
+            } else {
+                alert("Please enter a valid API key.");
+            }
+        }
+
+        if(userKey) document.getElementById('keyModal').style.display = 'none';
+
+        async function processStrict() {
+            const text = document.getElementById('inputText').value.trim();
+            const outDiv = document.getElementById('output');
+            const btn = document.getElementById('runBtn');
+
+            if(!text) return alert("Enter text first.");
+            
+            btn.innerHTML = `<span class="spinner"></span> Processing`;
+            btn.disabled = true;
+            outDiv.style.opacity = 0.5;
+
+            // =========================================================================
+            // ⚠️ THE STRICT PROMPT ⚠️
+            // 重點：
+            // 1. 強制 POS Check (Noun->Noun, Verb->Verb)
+            // 2. 要求中文翻譯 (Traditional Chinese)
+            // =========================================================================
+            const prompt = `
+            You are a Strict Linguistic Enforcer. Your task is to upgrade words in the user's text using the provided AKL Database, following strictly Part-of-Speech (POS) rules.
+
+            DATABASE:
+            ${AKL_DB}
+
+            STRICT RULES:
+            1. **POS Matching (CRITICAL):**
+               - If the original word is a NOUN, replace it ONLY with a word from 'NOUNS_LIST'.
+               - If the original word is a VERB, replace it ONLY with a word from 'VERBS_LIST'.
+               - DO NOT SWAP CATEGORIES.
+               - Example: 'The data shows a correlation.' -> 'Correlation' is a Noun. Do NOT change it to 'correlated'.
+
+            2. **Morphology & Tense:**
+               - **VERBS:** Conjugate the replacement verb to match the tense of the original (e.g., 'looked' -> 'examined').
+               - **NOUNS:** Keep the root form, adjust plural only if original is plural.
+
+            3. **Database Constraints:**
+               - Only use replacements found in the provided Database.
+
+            OUTPUT FORMAT (HTML):
+            Return the full text wrapped in <p> tags.
+            Wrap changed words in: 
+            <span class="akl-match" data-original="ORIGINAL_WORD" data-pos="POS_TAG" data-zh="CHINESE_TRANSLATION">NEW_WORD</span>
+            
+            **Translation Instruction**:
+            For every replacement, provide the Traditional Chinese (繁體中文) meaning of the NEW word in the 'data-zh' attribute.
+
+            INPUT TEXT:
+            "${text}"
+            `;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${userKey}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+
+                const data = await response.json();
+                if(data.error) throw new Error(data.error.message);
+
+                let html = data.candidates[0].content.parts[0].text;
+                // Clean markdown
+                html = html.replace(/```html/g, '').replace(/```/g, '');
+
+                outDiv.innerHTML = html;
+                setupInteractions();
+
+            } catch (e) {
+                alert("Error: " + e.message);
+                if(e.message.includes("API key")) document.getElementById('keyModal').style.display = 'flex';
+            } finally {
+                btn.innerHTML = "Strict Process";
+                btn.disabled = false;
+                outDiv.style.opacity = 1;
+            }
+        }
+
+        function setupInteractions() {
+            const matches = document.querySelectorAll('.akl-match');
+            document.getElementById('stat-count').innerText = `${matches.length} Changes`;
+
+            matches.forEach(el => {
+                el.addEventListener('click', () => {
+                    if(el.classList.contains('reverted')) {
+                        el.classList.remove('reverted');
+                        el.innerText = el.getAttribute('data-new-val');
+                    } else {
+                        if(!el.getAttribute('data-new-val')) el.setAttribute('data-new-val', el.innerText);
+                        el.classList.add('reverted');
+                        el.innerText = el.getAttribute('data-original');
+                    }
+                });
+            });
+        }
+
+        function loadSample() {
+            document.getElementById('inputText').value = "CUDA 12.1 is not officially supported on Ubuntu 24.04, but you can usually get it working by using NVIDIA’s Ubuntu 22.04 repo on 24.04, or by using a Docker image. I will walk you through the repo method with clear commands and then mention the safer container option.";
+        }
+
+        function copyClean() {
+            const outDiv = document.getElementById('output');
+            const clone = outDiv.cloneNode(true);
+            clone.querySelectorAll('.akl-match').forEach(span => {
+                const text = document.createTextNode(span.innerText);
+                span.replaceWith(text);
+            });
+            navigator.clipboard.writeText(clone.innerText).then(() => alert("Copied!"));
+        }
+    </script>
+</body>
+</html>
