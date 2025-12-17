@@ -83,10 +83,10 @@
     <div id="keyModal" class="modal" style="display:flex;">
         <div class="modal-content">
             <h3 style="margin-top:0">Configuration</h3>
-            <p style="font-size:0.9rem; color:#64748b;">Please enter your Gemini API Key.</p>
+            <p style="font-size:0.9rem; color:#64748b;">Please enter your Gemini API Key (Gemini 2.5-flash).</p>
             <input type="password" id="apiKey" placeholder="Paste AIza... key here">
             <div style="text-align:right; margin-top:10px;">
-                <button class="btn-primary" onclick="saveKey()">Start Strict Editor</button>
+                <button class="btn-primary" onclick="saveKey()">Start Editor</button>
             </div>
         </div>
     </div>
@@ -117,14 +117,14 @@
                 <div style="display:flex; gap:10px;">
                     <div id="stat-count" style="font-size:0.8rem; color:#b91c1c; display:flex; align-items:center; font-weight:bold;"></div>
                     <button class="btn-primary" id="runBtn" onclick="processStrict()">
-                        Strict Process
+                        Send Request
                     </button>
                     <button class="btn-ghost" onclick="copyClean()">Copy</button>
                 </div>
             </div>
             <div id="output">
                 <p style="color:#cbd5e1; font-style:italic; margin-top:20px;">
-                    Output will strictly adhere to POS rules with Chinese annotations on hover.
+                    Output will display here.
                 </p>
             </div>
         </div>
@@ -206,7 +206,7 @@
             <span class="akl-match" data-original="ORIGINAL_WORD" data-pos="POS_TAG" data-zh="CHINESE_TRANSLATION">NEW_WORD</span>
             
             **Translation Instruction**:
-            For every replacement, provide the Traditional Chinese (繁體中文) meaning of the NEW word in the 'data-zh' attribute.
+            For every replacement, provide the Traditional Chinese (繁體中文) meaning of the original word and new word(use original -> new) in the 'data-zh' attribute.
 
             INPUT TEXT:
             "${text}"
@@ -233,7 +233,7 @@
                 alert("Error: " + e.message);
                 if(e.message.includes("API key")) document.getElementById('keyModal').style.display = 'flex';
             } finally {
-                btn.innerHTML = "Strict Process";
+                btn.innerHTML = "Send Request";
                 btn.disabled = false;
                 outDiv.style.opacity = 1;
             }
